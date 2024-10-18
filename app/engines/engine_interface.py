@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class Engine(ABC):
     @abstractmethod
     def init_vector_store():

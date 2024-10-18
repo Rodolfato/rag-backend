@@ -10,6 +10,7 @@ from langchain_ollama import OllamaEmbeddings
 load_dotenv()
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
 
+
 def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
     """
     Carga documentos en formato PDF desde un directorio.
@@ -24,7 +25,10 @@ def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
     documents = document_loader.load()
     return documents
 
-def split_documents(documents: List[Document], chunk_size: int, chunk_overlap: int) -> List[Document]:
+
+def split_documents(
+    documents: List[Document], chunk_size: int, chunk_overlap: int
+) -> List[Document]:
     """
     Divide los documentos en fragmentos más pequeños (chunks) basados en un tamaño y overlap especificados.
 
@@ -45,6 +49,7 @@ def split_documents(documents: List[Document], chunk_size: int, chunk_overlap: i
     separated_documents = text_splitter.split_documents(documents)
     return separated_documents
 
+
 def hash_content(content: str) -> str:
     """
     Genera un hash SHA-512 del contenido proporcionado.
@@ -55,7 +60,8 @@ def hash_content(content: str) -> str:
     Returns:
         str: El hash hexadecimal del contenido.
     """
-    return hashlib.sha512(content.encode('utf-8')).hexdigest()
+    return hashlib.sha512(content.encode("utf-8")).hexdigest()
+
 
 def hash_documents(documents: List[Document]) -> List[Document]:
     """
@@ -69,9 +75,10 @@ def hash_documents(documents: List[Document]) -> List[Document]:
     """
     hashed_documents = []
     for document in documents:
-        document.metadata['page_content_sha512'] = hash_content(document.page_content)
+        document.metadata["page_content_sha512"] = hash_content(document.page_content)
         hashed_documents.append(document)
     return hashed_documents
+
 
 def get_jina_v2_embedding_function():
     """

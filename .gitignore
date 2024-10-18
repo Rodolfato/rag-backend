@@ -2,6 +2,7 @@
 **/documents/
 **/documents_test/
 **/chroma/
+**/data/**
 **/__pycache__/
 **/.env
 .env
