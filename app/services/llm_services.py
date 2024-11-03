@@ -30,7 +30,10 @@ def query_llm(
 ) -> str:
 
     docs = vector_search(
-        vector_store=vector_db_engine.init_vector_store(), query=query_text, k=search_k
+        vector_store=vector_db_engine.init_vector_store(),
+        query=query_text,
+        search_type="similarity",
+        k=search_k,
     )
 
     page_contents = []

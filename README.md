@@ -11,13 +11,11 @@ rag-backend/
 │   │   ├── models.py             # Pydantic models for requests/responses
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── rag_service.py        # RAG business logic
 │   │   ├── vector_db_service.py  # Interaction with vector database
 │   │   ├── llm_service.py        # Interaction with LLM model
 │   ├── utils/
 │   │   ├── __init__.py
 │   │   ├── embedding_utils.py    # Utilities for text chunking/embedding
-│   │   ├── db_utils.py           # Utilities for database setup/teardown
 │   ├── config.py                 # Configuration settings (e.g., API keys, db paths)
 │
 ├── tests/

@@ -28,12 +28,12 @@ class MongoEngine(Engine):
             search_index_function (str): La función de búsqueda a utilizar (cosin, euclidean, dot product). Default: "cosine"
             embedding_model (Embeddings): El modelo de embeddings a utilizar.
         """
-        self.conn_string = conn_string
-        self.db_name = db_name
-        self.collection = collection
-        self.search_index = search_index
-        self.search_index_function = search_index_function
-        self.embedding_model = embedding_model
+        self.conn_string = conn_string  # Igual para todas las vector stores
+        self.db_name = db_name  # Igual para todas las vector stores
+        self.collection = collection  # Cambia por vector store
+        self.search_index = search_index  # Cambia por vector store
+        self.search_index_function = search_index_function  # Cambia por vector store
+        self.embedding_model = embedding_model  # Igual para todos los vector stores
 
     def init_vector_store(self) -> MongoDBAtlasVectorSearch:
         """

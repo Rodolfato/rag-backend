@@ -1,6 +1,8 @@
+import json
 import os
 import hashlib
-from typing import List
+from datetime import datetime
+from typing import List, Dict
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -9,6 +11,7 @@ from langchain_ollama import OllamaEmbeddings
 
 load_dotenv()
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
+MESSAGES_PATH = os.getenv("MESSAGES_PATH")
 
 
 def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
@@ -89,3 +92,65 @@ def get_jina_v2_embedding_function():
     """
     embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-es")
     return embeddings
+
+
+def load_json(file_path: str = MESSAGES_PATH) -> List[Dict]:
+    with open(file_path, "r") as file:
+        data = json.load(file)
+    return data
+
+
+def chunk_messages_with_context(
+    messages: List[Dict], window_size: int = 3
+) -> List[Dict]:
+    messages_sorted = sorted(messages, key=lambda x: (x["chat_id"], x["timestamp"]))
+
+    chunks = []
+
+    for i in range(len(messages_sorted)):
+        msg = messages_sorted[i]
+
+        same_chat_messages = []
+        for m in messages_sorted:
+            if m["chat_id"] == msg["chat_id"]:
+                same_chat_messages.append(m)
+
+        start_index = max(0, i - window_size)
+        end_index = min(len(same_chat_messages), i + window_size + 1)
+
+        context_messages = []
+        for j in range(start_index, end_index):
+            context_messages.append(same_chat_messages[j])
+
+        chunk = {
+            "chat_id": msg["chat_id"],
+            "subject": msg["subject"],
+            "central_message_id": msg["message_id"],
+            "central_text": msg["text"],
+            "timestamp": msg["timestamp"],
+            "context": context_messages,
+        }
+
+        chunks.append(chunk)
+
+    return chunks
+
+
+def make_chat_chunks_into_documents(messages: List[Dict]) -> List[Document]:
+    for message in messages:
+        documents = []
+        chunk_text = ""
+        for msg in message["context"]:
+            chunk_text += msg["text"] + "\n"
+
+        document = Document(
+            page_content=chunk_text.strip(),
+            metadata={
+                "chat_id": message["chat_id"],
+                "subject": message["subject"],
+                "timestamp": message["timestamp"],
+                "central_text": message["central_text"],
+            },
+        )
+        documents.append(document)
+    return documents
