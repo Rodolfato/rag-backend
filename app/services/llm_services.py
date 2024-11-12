@@ -12,6 +12,10 @@ PROMPT_TEMPLATE = ChatPromptTemplate(
         ),
         (
             "system",
+            "Si el contexto es un historial de mensajes, debes responder con la información entregada en dichos mensajes.",
+        ),
+        (
+            "system",
             "El contexto para responder a la pregunta entregada por el usuario es el siguiente: {context}",
         ),
         (
@@ -29,11 +33,24 @@ def query_llm(
     search_k: int = 4,
 ) -> str:
 
+    query_text = query_text.lower()
+    project_name = ""
+    project_names = vector_db_engine.get_project_names()
+    print(project_names)
+    for project in project_names:
+        if project in query_text:
+            project_name = project
+            print(f"Se encontro el nombre del proyecto en la query: {project_name}")
+    if not project_name:
+        response_text = f"No se proporcionó el nombre del proyecto en la consulta.\nLos proyectos disponible para consultar son:\n{", ".join(project_names)}."
+        return response_text
+
     docs = vector_search(
         vector_store=vector_db_engine.init_vector_store(),
         query=query_text,
         search_type="similarity",
         k=search_k,
+        project_name=project_name,
     )
 
     page_contents = []
@@ -44,6 +61,16 @@ def query_llm(
     prompt = PROMPT_TEMPLATE.format(context=context_text, question=query_text)
     model = model
     response_text = model.invoke(prompt)
+    sources = "\n"
+    for doc in docs:
+        sources += f"{doc.metadata["title"].capitalize()}, pag.{doc.metadata["page"]}. {doc.metadata["author"]}\n\n"
     print(response_text)
-    print(f"\n\n\nEl contexto para generar esta respuesta fue\n\n\n {context_text}")
-    return response_text
+    full_response = f"{response_text}\n\nFuentes: {sources}"
+    print(
+        f"\n\n\nEl contexto para generar la respuesta a esta pregunta: {query_text} fue:\n\n\n {context_text}"
+    )
+    for doc in docs:
+        print(doc.metadata)
+        print()
+        print()
+    return full_response

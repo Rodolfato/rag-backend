@@ -4,10 +4,12 @@ from langchain_ollama import OllamaLLM
 from app.engines.mongo_engine import MongoEngine
 from app.utils.embedding_utils import get_jina_v2_embedding_function
 
-load_dotenv()
+load_dotenv(override=True)
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_NAME = os.getenv("MONGODB_NAME")
 MONGODB_COLLECTION_NAME = os.getenv("MONGODB_COLLECTION_NAME")
+DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
+
 
 vector_db_engine = MongoEngine(
     conn_string=MONGODB_URI,

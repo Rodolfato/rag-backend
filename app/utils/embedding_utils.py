@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from langchain_ollama import OllamaEmbeddings
 
-load_dotenv()
+load_dotenv(override=True)
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
 MESSAGES_PATH = os.getenv("MESSAGES_PATH")
 
@@ -27,6 +27,37 @@ def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
     document_loader = PyPDFDirectoryLoader(path)
     documents = document_loader.load()
     return documents
+
+
+def load_pdf_documents_subdirectories(path: str) -> List[List[Document]]:
+    subdir_documents = []
+    for subdir, _, _ in os.walk(path):
+        if subdir == path:
+            continue
+        documents = load_pdf_documents(subdir)
+        for docu in documents:
+            docu.metadata["project_name"] = subdir.split("/")[-1]
+            docu.metadata["author"] = (
+                docu.metadata["source"].split("/")[-1].split("_")[1]
+            )
+
+            docu.metadata["year"] = docu.metadata["source"].split("/")[-1].split("_")[0]
+            docu.metadata["title"] = (
+                docu.metadata["source"].split("/")[-1].split("_")[-1][:-4]
+            )
+        subdir_documents.append(documents)
+
+    return subdir_documents
+
+
+def split_documents_subdirectories(
+    documents: List[List[Document]], chunk_size: int, chunk_overlap: int
+) -> List[Document]:
+    chunks = []
+    for directory in documents:
+        dir_chunks = split_documents(directory, chunk_size, chunk_overlap)
+        chunks.extend(dir_chunks)
+    return chunks
 
 
 def split_documents(
@@ -109,17 +140,24 @@ def chunk_messages_with_context(
 
     for i in range(len(messages_sorted)):
         msg = messages_sorted[i]
-
+        print(f"\t\tCreando chunk con el mensaje {msg}\n")
         same_chat_messages = []
+        print(f"Los mensajes pertenecientes a este mismo chat son:\n")
         for m in messages_sorted:
             if m["chat_id"] == msg["chat_id"]:
+                print(f"\t{m}")
                 same_chat_messages.append(m)
 
-        start_index = max(0, i - window_size)
-        end_index = min(len(same_chat_messages), i + window_size + 1)
+        k = same_chat_messages.index(msg)
+        start_index = max(0, k - window_size)
+        end_index = min(len(same_chat_messages), k + window_size + 1)
+        print(
+            f"\nEl mensaje esta en la posicion {k}. La ventana sera {start_index}, {end_index}\n"
+        )
 
         context_messages = []
         for j in range(start_index, end_index):
+            print(f"Contexto encontrado en el mensaje {j}: {same_chat_messages[j]}\n")
             context_messages.append(same_chat_messages[j])
 
         chunk = {
@@ -127,21 +165,31 @@ def chunk_messages_with_context(
             "subject": msg["subject"],
             "central_message_id": msg["message_id"],
             "central_text": msg["text"],
+            "centra_message_sender_id": msg["sender_id"],
             "timestamp": msg["timestamp"],
             "context": context_messages,
         }
 
+        print("Finalmente el chunk queda de la siguiente forma:")
+        for key, value in chunk.items():
+            if key != "context":
+                print(f"\t{key}: {value}")
+        for msg in chunk["context"]:
+            print(f"\t\t{msg}")
+
         chunks.append(chunk)
+        print("\n\n")
 
     return chunks
 
 
 def make_chat_chunks_into_documents(messages: List[Dict]) -> List[Document]:
+    documents = []
     for message in messages:
-        documents = []
+
         chunk_text = ""
         for msg in message["context"]:
-            chunk_text += msg["text"] + "\n"
+            chunk_text += msg["sender_id"] + ": " + msg["text"] + "\n"
 
         document = Document(
             page_content=chunk_text.strip(),

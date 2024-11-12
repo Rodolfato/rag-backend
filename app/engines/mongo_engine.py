@@ -99,3 +99,41 @@ class MongoEngine(Engine):
         db = self.get_db()
         collection = db[self.collection]
         return collection
+
+    def get_project_names(self) -> List[str]:
+        """
+        Obtiene una lista de los nombres de los proyectos desde la base de datos.
+
+        Esta función ejecuta una operación de agregación en la colección de la base de datos
+        para agrupar los documentos por el campo `project_name` y devolver una lista de valores
+        únicos de dicho campo.
+
+        El proceso se realiza mediante un pipeline de agregación de MongoDB que agrupa los documentos
+        por `project_name` y luego proyecta solo los valores únicos.
+
+        Args:
+            self: Instancia de la clase que contiene la conexión y la colección de la base de datos.
+
+        Returns:
+            List[str]: Una lista de strings que contiene los nombres de los proyectos.
+
+        Ejemplo:
+            >>> project_names = instance.get_project_names()
+            >>> print(project_names)
+            ['proyecto1', 'proyecto2', 'proyecto3']
+        """
+
+        pipeline = [
+            {"$group": {"_id": "$project_name"}},
+            {
+                "$project": {
+                    "_id": 0,
+                    "project_name": "$_id",
+                }
+            },
+        ]
+        result = self.get_db_collection().aggregate(pipeline)
+        project_names = []
+        for doc in result:
+            project_names.append(doc["project_name"])
+        return project_names

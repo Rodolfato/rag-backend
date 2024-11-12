@@ -1,14 +1,15 @@
 import argparse
-from app.config import vector_db_engine
+import time
+from app.config import DOCUMENTS_PATH, vector_db_engine
 from app.config import llm
 from app.services.llm_services import query_llm
 from app.utils.embedding_utils import (
     chunk_messages_with_context,
     hash_documents,
     load_json,
-    load_pdf_documents,
+    load_pdf_documents_subdirectories,
     make_chat_chunks_into_documents,
-    split_documents,
+    split_documents_subdirectories,
 )
 
 
@@ -31,7 +32,33 @@ def main():
     args = parser.parse_args()
 
     if args.load:
-        print("Cargando base de datos")
+        overall_start_time = time.perf_counter()
+        print("Cargando documentos almacenados en subdirectorios...")
+        start_time = time.perf_counter()
+        documents_directory = load_pdf_documents_subdirectories(DOCUMENTS_PATH)
+        print(
+            f"Documentos cargados, tiempo demorado: { time.perf_counter() - start_time} segundos."
+        )
+        print("Partiendo contenido en chunks...")
+        start_time = time.perf_counter()
+        chunks = split_documents_subdirectories(documents_directory, 512, 64)
+        chunks_with_sha512 = hash_documents(chunks)
+        print(
+            f"Se crearon {len(chunks_with_sha512)} chunks. Tiempo demorado: { time.perf_counter() - start_time} segundos."
+        )
+        print("Cargando base de datos con chunks...")
+        start_time = time.perf_counter()
+
+        added_ids = vector_db_engine.load_db(chunks_with_sha512)
+
+        print(
+            f"Se agregaron {len(added_ids)} documentos. Tiempo demorado: { time.perf_counter() - start_time} segundos."
+        )
+        print(
+            f"Tiempo total en el cargado de documentos: {time.perf_counter() - overall_start_time} segundos."
+        )
+
+        """ print("Cargando base de datos")
         print("Cargando documentos...")
         documents = load_pdf_documents()
         print("Partiendo contenido en chunks...")
@@ -39,11 +66,13 @@ def main():
         chunks_with_sha512 = hash_documents(chunks)
         print("Cargando base de datos con chunks...")
         added_ids = vector_db_engine.load_db(chunks_with_sha512)
-        print(f"Se agregaron {len(added_ids)} documentos")
+        print(f"Se agregaron {len(added_ids)} documentos") """
     if args.load_msg:
-        messages = load_json()
+        messages = load_json(file_path="app/data/messages/chat_history_each_msg.json")
         msg_chunks = chunk_messages_with_context(messages)
         msg_documents = make_chat_chunks_into_documents(msg_chunks)
+        print(msg_documents)
+        added_ids = vector_db_engine.load_db(msg_documents)
     if args.reset:
         print("Eliminando contenidos de base de datos")
         vector_db_engine.clear_db()
