@@ -5,8 +5,16 @@ from pymongo.collection import Collection
 from langchain.schema.document import Document
 from langchain_mongodb.vectorstores import MongoDBAtlasVectorSearch
 from app.engines.engine_interface import Engine
-from app.utils.embedding_utils import get_jina_v2_embedding_function
+from app.utils.embedding_utils import (
+    check_all_documents_for_duplicate,
+    get_jina_v2_embedding_function,
+)
 from langchain_core.embeddings import Embeddings
+
+from app.utils.keyword_search_utils import (
+    preprocess_query_spacy,
+    transform_to_document,
+)
 
 
 class MongoEngine(Engine):
@@ -58,7 +66,7 @@ class MongoEngine(Engine):
 
     def load_db(self, documents: List[Document]) -> List[str]:
         """
-        Carga documentos en el almacén vectorial.
+        Carga documentos en la base de datos vectorial. Evita duplicados comparando los hashes de cada chunk.
 
         Args:
             vector_store (MongoDBAtlasVectorSearch): La vector store donde se cargarán los documentos.
@@ -67,7 +75,12 @@ class MongoEngine(Engine):
         Returns:
             List[str]: La lista de IDs para los documentos agregados.
         """
-        added_ids = self.init_vector_store().add_documents(documents=documents)
+        db_documents = self.get_db_collection().find()
+        final_documents = check_all_documents_for_duplicate(documents, db_documents)
+        added_ids = self.init_vector_store().add_documents(documents=final_documents)
+        print(
+            f"Se encontraron {len(documents) - len(final_documents)} repetidos. Se cargará un total de {len(final_documents)} chunks. "
+        )
         return added_ids
 
     def clear_db(self) -> None:
@@ -137,3 +150,31 @@ class MongoEngine(Engine):
         for doc in result:
             project_names.append(doc["project_name"])
         return project_names
+
+    def keyword_search(
+        self, project_name: str, query: str, top_k: int = 10
+    ) -> list[Document]:
+        print("La query a buscar es:" + query)
+        keyword_query = preprocess_query_spacy(query)
+        print("Las keyboard a buscar son:" + keyword_query)
+        collection = self.get_db_collection()
+        collection.create_index([("page_content", "text")])
+
+        results = (
+            collection.find(
+                {
+                    "$text": {"$search": keyword_query},
+                    "project_name": project_name,
+                },
+                {"score": {"$meta": "textScore"}},
+            )
+            .sort([("score", {"$meta": "textScore"})])
+            .limit(top_k)
+        )
+
+        lg_documents = []
+        for result in results:
+            docu = transform_to_document(result)
+            lg_documents.append(docu)
+
+        return list(lg_documents)

@@ -1,15 +1,18 @@
 import argparse
+import os
 import time
 from app.config import DOCUMENTS_PATH, vector_db_engine
 from app.config import llm
 from app.services.llm_services import query_llm
 from app.utils.embedding_utils import (
     chunk_messages_with_context,
+    extract_pdf_metadata,
     hash_documents,
     load_json,
     load_pdf_documents_subdirectories,
     make_chat_chunks_into_documents,
     split_documents_subdirectories,
+    update_mongodb_with_links,
 )
 
 
@@ -29,6 +32,8 @@ def main():
     parser.add_argument(
         "--query", type=str, help="Consulta a realizar sobre los datos."
     )
+    parser.add_argument("--generate-pdf-json", type=str)
+    parser.add_argument("--update-db-with-pdf-json", type=str)
     args = parser.parse_args()
 
     if args.load:
@@ -57,16 +62,6 @@ def main():
         print(
             f"Tiempo total en el cargado de documentos: {time.perf_counter() - overall_start_time} segundos."
         )
-
-        """ print("Cargando base de datos")
-        print("Cargando documentos...")
-        documents = load_pdf_documents()
-        print("Partiendo contenido en chunks...")
-        chunks = split_documents(documents, 512, 64)
-        chunks_with_sha512 = hash_documents(chunks)
-        print("Cargando base de datos con chunks...")
-        added_ids = vector_db_engine.load_db(chunks_with_sha512)
-        print(f"Se agregaron {len(added_ids)} documentos") """
     if args.load_msg:
         messages = load_json(file_path="app/data/messages/chat_history_each_msg.json")
         msg_chunks = chunk_messages_with_context(messages)
@@ -79,11 +74,21 @@ def main():
     if args.query:
         query_string = args.query
         print(f"La consulta es: {query_string}")
-        query_llm(
+        """query_llm(
             vector_db_engine=vector_db_engine,
             query_text=query_string,
             model=llm,
             search_k=4,
+        ) """
+    if args.generate_pdf_json:
+        directory = args.generate_pdf_json
+        extract_pdf_metadata(directory)
+
+    if args.update_db_with_pdf_json:
+        directory = args.update_db_with_pdf_json
+        update_mongodb_with_links(
+            vector_db_engine.get_db_collection(),
+            os.path.join(directory, "PDF File Names.json"),
         )
 
 

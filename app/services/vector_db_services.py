@@ -23,10 +23,13 @@ def vector_search(
         List[Document]: Una lista de documentos que cumplen con la consulta de búsqueda y el filtro de 'project_name'.
     """
     retriever = vector_store.as_retriever(
-        search_type="similarity", search_kwargs={"k": k}
+        search_type=search_type, search_kwargs={"k": k}
     )
     docs = retriever.invoke(query)
-    for doc in docs:
-        if doc.metadata["project_name"] != project_name:
-            docs.remove(doc)
+    if project_name:
+        filtered_docs = []
+        for doc in docs:
+            if doc.metadata.get("project_name") == project_name:
+                filtered_docs.append(doc)
+        docs = filtered_docs
     return docs

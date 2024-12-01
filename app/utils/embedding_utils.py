@@ -31,20 +31,45 @@ def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
 
 def load_pdf_documents_subdirectories(path: str) -> List[List[Document]]:
     subdir_documents = []
+
     for subdir, _, _ in os.walk(path):
         if subdir == path:
             continue
+
+        json_path = os.path.join(subdir, "PDF File Names.json")
+        links_data = []
+        if os.path.exists(json_path):
+            with open(json_path, "r", encoding="utf-8") as json_file:
+                links_data = json.load(json_file)
+
         documents = load_pdf_documents(subdir)
         for docu in documents:
-            docu.metadata["project_name"] = subdir.split("/")[-1]
-            docu.metadata["author"] = (
-                docu.metadata["source"].split("/")[-1].split("_")[1]
-            )
 
-            docu.metadata["year"] = docu.metadata["source"].split("/")[-1].split("_")[0]
-            docu.metadata["title"] = (
-                docu.metadata["source"].split("/")[-1].split("_")[-1][:-4]
+            filename_parts = docu.metadata["source"].split("/")[-1].split("_")
+            docu.metadata["project_name"] = subdir.split("/")[-1]
+            docu.metadata["author"] = filename_parts[1].replace("-", " ").lower()
+            docu.metadata["year"] = filename_parts[0]
+
+            # Se busca el link y titulo del documento en el JSON utilizando la fecha y el autor
+            matching_entry = next(
+                (
+                    entry
+                    for entry in links_data
+                    if entry["year"] == docu.metadata["year"]
+                    and entry["author"].lower() == docu.metadata["author"].lower()
+                ),
+                None,
             )
+            if matching_entry:
+                docu.metadata["title"] = matching_entry["title"]
+                docu.metadata["link"] = matching_entry["link"]
+                # El PDF loader empieza a contar las paginas desde 0. Se le suma 1.
+                docu.metadata["page"] = docu.metadata["page"] + 1
+            else:
+                print(
+                    f"Documento NO encontrado: {docu.metadata}. Revisar que el autor y fecha sea igual en el JSON y en el nombre del archivo del documento."
+                )
+
         subdir_documents.append(documents)
 
     return subdir_documents
@@ -202,3 +227,78 @@ def make_chat_chunks_into_documents(messages: List[Dict]) -> List[Document]:
         )
         documents.append(document)
     return documents
+
+
+def check_for_duplicate(lg_document, db_documents):
+    for doc in db_documents:
+        if doc["page_content_sha512"] == lg_document.metadata["page_content_sha512"]:
+            return True
+    return False
+
+
+def check_all_documents_for_duplicate(lg_documents, db_documents):
+    final_documents = []
+    for document in lg_documents:
+        if not check_for_duplicate(document, db_documents):
+            final_documents.append(document)
+    return final_documents
+
+
+def extract_pdf_metadata(pdf_directory):
+    pdf_metadata = []
+    for filename in os.listdir(pdf_directory):
+        if filename.endswith(".pdf"):
+            parts = filename[:-4].split("_")
+            if len(parts) >= 3:
+                year = parts[0]
+                author = parts[1].replace("_", " ")
+                title = "_".join(parts[2:]).replace("_", " ")
+
+                pdf_metadata.append(
+                    {
+                        "year": year,
+                        "author": author,
+                        "title": title,
+                        "link": "",
+                    }
+                )
+
+    output_path = os.path.join(pdf_directory, "PDF File Names.json")
+
+    with open(output_path, "w", encoding="utf-8") as json_file:
+        json.dump(pdf_metadata, json_file, ensure_ascii=False, indent=4)
+
+    print(f"Metadata extracted and saved to {output_path}")
+
+
+def update_mongodb_with_links(collection, json_file):
+    # Load the JSON data
+    with open(json_file, "r", encoding="utf-8") as file:
+        links_data = json.load(file)
+
+    # Update each document in the collection
+    for document in collection.find():
+        # Find a matching entry in the JSON data
+        matching_entry = next(
+            (
+                entry
+                for entry in links_data
+                if entry["year"] == document.get("year")
+                and entry["author"].lower() == document.get("author", "").lower()
+            ),
+            None,
+        )
+
+        if matching_entry:
+            # Add the link field to the document
+            document["link"] = matching_entry["link"]
+
+            # Update the document in the collection
+            collection.update_one(
+                {"_id": document["_id"]}, {"$set": {"link": matching_entry["link"]}}
+            )
+            print(
+                f"Se actualizo el documento ({document['author'], document['year']}) con link: {matching_entry['link']}"
+            )
+
+    print("Todos lo documentos procesados.")
