@@ -14,7 +14,7 @@ def say_hello():
 
 @api_router.post("/query/")
 def ask_query(query: Query):
-    model_response = query_llm(
+    full_response = query_llm(
         vector_db_engine=vector_db_engine,
         query_text=query.query_text,
         model=llm,
@@ -23,5 +23,6 @@ def ask_query(query: Query):
     return {
         "message": "Query entregada con exito",
         "query": query,
-        "model_response": model_response,
+        "model_response": full_response.get("model_response"),
+        "sources": full_response.get("sources"),
     }

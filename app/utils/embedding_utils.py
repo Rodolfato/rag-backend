@@ -268,10 +268,11 @@ def extract_pdf_metadata(pdf_directory):
     with open(output_path, "w", encoding="utf-8") as json_file:
         json.dump(pdf_metadata, json_file, ensure_ascii=False, indent=4)
 
-    print(f"Metadata extracted and saved to {output_path}")
+    print(f"Metadata extraida y guardad en {output_path}")
 
 
 def update_mongodb_with_links(collection, json_file):
+    # TODO TRANSFORMAR ESTO A UN UPDATE EN BASE AL JSON Y MOVERLO AL ENGINE
     # Load the JSON data
     with open(json_file, "r", encoding="utf-8") as file:
         links_data = json.load(file)

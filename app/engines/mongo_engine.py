@@ -36,12 +36,12 @@ class MongoEngine(Engine):
             search_index_function (str): La función de búsqueda a utilizar (cosin, euclidean, dot product). Default: "cosine"
             embedding_model (Embeddings): El modelo de embeddings a utilizar.
         """
-        self.conn_string = conn_string  # Igual para todas las vector stores
-        self.db_name = db_name  # Igual para todas las vector stores
-        self.collection = collection  # Cambia por vector store
-        self.search_index = search_index  # Cambia por vector store
-        self.search_index_function = search_index_function  # Cambia por vector store
-        self.embedding_model = embedding_model  # Igual para todos los vector stores
+        self.conn_string = conn_string
+        self.db_name = db_name
+        self.collection = collection
+        self.search_index = search_index
+        self.search_index_function = search_index_function
+        self.embedding_model = embedding_model
 
     def init_vector_store(self) -> MongoDBAtlasVectorSearch:
         """
@@ -77,10 +77,11 @@ class MongoEngine(Engine):
         """
         db_documents = self.get_db_collection().find()
         final_documents = check_all_documents_for_duplicate(documents, db_documents)
-        added_ids = self.init_vector_store().add_documents(documents=final_documents)
         print(
             f"Se encontraron {len(documents) - len(final_documents)} repetidos. Se cargará un total de {len(final_documents)} chunks. "
         )
+        added_ids = self.init_vector_store().add_documents(documents=final_documents)
+
         return added_ids
 
     def clear_db(self) -> None:
@@ -156,6 +157,8 @@ class MongoEngine(Engine):
     ) -> list[Document]:
         print("La query a buscar es:" + query)
         keyword_query = preprocess_query_spacy(query)
+        if project_name in keyword_query:
+            keyword_query = keyword_query.replace(project_name, "").strip()
         print("Las keyboard a buscar son:" + keyword_query)
         collection = self.get_db_collection()
         collection.create_index([("page_content", "text")])
@@ -177,4 +180,43 @@ class MongoEngine(Engine):
             docu = transform_to_document(result)
             lg_documents.append(docu)
 
+        print("los resultados de la keyword search son:", lg_documents)
+
         return list(lg_documents)
+
+    def vector_search(
+        self,
+        query: str,
+        project_name: str = None,
+        search_type: str = "similarity",
+        k: int = 4,
+    ) -> list[Document]:
+        """
+        Realiza una búsqueda en la vector store y filtra los resultados por el campo 'project_name' si se proporciona.
+
+        Args:
+            query (str): La consulta en lenguaje natural.
+            project_name (str, opcional): El nombre del proyecto para filtrar los resultados. Si no se proporciona, no se filtra.
+            search_type (str, opcional): El tipo de búsqueda. Por defecto, es "similarity".
+            k (int, opcional): El número de documentos a devolver. Por defecto, es 4.
+
+        Returns:
+            List[Document]: Una lista de documentos que cumplen con la consulta de búsqueda y el filtro de 'project_name'.
+        """
+        retriever = self.init_vector_store().as_retriever(
+            search_type=search_type,
+            search_kwargs={
+                "k": k * 10,
+                "pre_filter": {"project_name": {"$eq": project_name}},
+                # "pre_filter": {"string": {"path": "project_name", "query": project_name}},
+                "post_filter_pipeline": [{"$limit": k}],
+            },
+        )
+        docs = retriever.invoke(query)
+        if project_name:
+            filtered_docs = []
+            for doc in docs:
+                if doc.metadata.get("project_name") == project_name:
+                    filtered_docs.append(doc)
+            docs = filtered_docs
+        return docs
