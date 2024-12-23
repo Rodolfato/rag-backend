@@ -78,10 +78,9 @@ class MongoEngine(Engine):
         db_documents = self.get_db_collection().find()
         final_documents = check_all_documents_for_duplicate(documents, db_documents)
         print(
-            f"Se encontraron {len(documents) - len(final_documents)} repetidos. Se cargará un total de {len(final_documents)} chunks. "
+            f"Se encontraron {len(documents) - len(final_documents)} chunks repetidos. Se cargará un total de {len(final_documents)} chunks. "
         )
         added_ids = self.init_vector_store().add_documents(documents=final_documents)
-
         return added_ids
 
     def clear_db(self) -> None:
@@ -179,8 +178,6 @@ class MongoEngine(Engine):
         for result in results:
             docu = transform_to_document(result)
             lg_documents.append(docu)
-
-        print("los resultados de la keyword search son:", lg_documents)
 
         return list(lg_documents)
 

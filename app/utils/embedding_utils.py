@@ -8,10 +8,28 @@ from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from langchain_ollama import OllamaEmbeddings
+import logging
+from logging.handlers import RotatingFileHandler
+
 
 load_dotenv(override=True)
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
 MESSAGES_PATH = os.getenv("MESSAGES_PATH")
+
+# TODO MOVE THIS LOGGING INTO A NEW FILE CALLED LOGGER_CONFIG.PY
+# TODO Also make a new file name each time it runs
+# TODO utilizar el logger para el funcionamiento de la aplicacion
+# TODO agregar logger a la consola
+# Set up logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Create a file handler and set the formatter
+file_handler = RotatingFileHandler("logfile.log", backupCount=1)
+file_handler.setLevel(logging.INFO)
+file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
 
 
 def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
@@ -67,7 +85,7 @@ def load_pdf_documents_subdirectories(path: str) -> List[List[Document]]:
                 docu.metadata["page"] = docu.metadata["page"] + 1
             else:
                 print(
-                    f"Documento NO encontrado: {docu.metadata}. Revisar que el autor y fecha sea igual en el JSON y en el nombre del archivo del documento."
+                    f"Documento NO encontrado: {docu.metadata}. Revisar que el autor, fecha y titulo sea igual entre el JSON y el nombre del archivo del documento."
                 )
 
         subdir_documents.append(documents)
@@ -229,19 +247,47 @@ def make_chat_chunks_into_documents(messages: List[Dict]) -> List[Document]:
     return documents
 
 
-def check_for_duplicate(lg_document, db_documents):
-    for doc in db_documents:
-        if doc["page_content_sha512"] == lg_document.metadata["page_content_sha512"]:
-            return True
-    return False
-
-
 def check_all_documents_for_duplicate(lg_documents, db_documents):
-    final_documents = []
-    for document in lg_documents:
-        if not check_for_duplicate(document, db_documents):
-            final_documents.append(document)
-    return final_documents
+    """
+    Verifica si los documentos en `lg_documents` ya existen en `db_documents` basándose en el hash del contenido (`page_content_sha512`).
+    Registra los documentos nuevos y los duplicados, y devuelve solo los documentos nuevos.
+
+    Esta función compara los hashes de los documentos en `lg_documents` con los documentos existentes en `db_documents`.
+    Si se encuentra un documento duplicado, se agrega a la lista `duplicates`. Si es un documento nuevo, se agrega a la lista `new_documents` y se registra una advertencia.
+
+    Args:
+        lg_documents (list): Lista de documentos nuevos a verificar.
+        db_documents (list): Lista de documentos ya existentes en la base de datos.
+
+    Returns:
+        list: Lista de documentos nuevos que no están duplicados.
+
+    Registra:
+        - Información sobre documentos duplicados y nuevos.
+        - Si falta el hash en un documento, se registra un error.
+        - Registra el total de documentos duplicados y nuevos encontrados.
+    """
+    db_hashes = {doc.get("page_content_sha512") for doc in db_documents}
+    duplicates = []
+    new_documents = []
+
+    for lg_document in lg_documents:
+        lg_hash = lg_document.metadata.get("page_content_sha512")
+        if not lg_hash:
+            logger.error("No se encontro el hash en el documento.")
+            continue
+
+        if lg_hash in db_hashes:
+            duplicates.append(lg_document)
+        else:
+            new_documents.append(lg_document)
+            logger.info(f"Nuevo documento encontrado:")
+            logger.info(f"\n\tProject: {lg_document.metadata.get('project_name')}")
+            logger.info(f"\n\tTitle: {lg_document.metadata.get('title')}")
+
+    logger.info(f"Total documentos duplicados: {len(duplicates)}.")
+    logger.info(f"Total documentos nuevos: {len(new_documents)}.")
+    return new_documents
 
 
 def extract_pdf_metadata(pdf_directory):
@@ -268,33 +314,29 @@ def extract_pdf_metadata(pdf_directory):
     with open(output_path, "w", encoding="utf-8") as json_file:
         json.dump(pdf_metadata, json_file, ensure_ascii=False, indent=4)
 
-    print(f"Metadata extraida y guardad en {output_path}")
+    print(f"Metadata extraida y guardada en {output_path}")
 
 
 def update_mongodb_with_links(collection, json_file):
     # TODO TRANSFORMAR ESTO A UN UPDATE EN BASE AL JSON Y MOVERLO AL ENGINE
-    # Load the JSON data
     with open(json_file, "r", encoding="utf-8") as file:
         links_data = json.load(file)
 
-    # Update each document in the collection
     for document in collection.find():
-        # Find a matching entry in the JSON data
         matching_entry = next(
             (
                 entry
                 for entry in links_data
                 if entry["year"] == document.get("year")
                 and entry["author"].lower() == document.get("author", "").lower()
+                and entry["title"].lower() == document.get("title", "").lower()
             ),
             None,
         )
 
         if matching_entry:
-            # Add the link field to the document
             document["link"] = matching_entry["link"]
 
-            # Update the document in the collection
             collection.update_one(
                 {"_id": document["_id"]}, {"$set": {"link": matching_entry["link"]}}
             )

@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from langchain_ollama import OllamaLLM
 from app.engines.mongo_engine import MongoEngine
 from app.utils.embedding_utils import get_jina_v2_embedding_function
+import logging
+from logging.handlers import RotatingFileHandler
 
 load_dotenv(override=True)
 MONGODB_URI = os.getenv("MONGODB_URI")

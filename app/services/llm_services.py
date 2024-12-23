@@ -34,7 +34,7 @@ def query_llm(
     query_text: str,
     model: BaseLLM = OllamaLLM(model="llama3.2"),
     search_k: int = 4,
-) -> str:
+):
 
     query_text = query_text.lower()
     project_name = ""
@@ -45,8 +45,11 @@ def query_llm(
             project_name = project
             print(f"Se encontro el nombre del proyecto en la query: {project_name}")
     if not project_name:
-        response_text = f"No se proporcionó el nombre del proyecto en la consulta.\nLos proyectos disponible para consultar son:\n{", ".join(project_names)}."
-        return response_text
+        full_response = {
+            "model_response": "No se encontro el nombre del proyecto en la query",
+            "sources": None,
+        }
+        return full_response
 
     vector_docs = vector_db_engine.vector_search(
         query=query_text,
@@ -61,8 +64,7 @@ def query_llm(
     response_text = model.invoke(prompt)
     sources = generate_sources(docs)
 
-    sources_string = generate_sources_string(sources)  # Para debugging
-    print(sources_string)
+    # sources_string = generate_sources_string(sources)  # Para debugging
 
     full_response = {
         "model_response": response_text,

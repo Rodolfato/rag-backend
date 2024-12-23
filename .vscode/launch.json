@@ -1,0 +1,10 @@
+{
+    "name": "Run app.utils.execute",
+    "type": "python",
+    "request": "launch",
+    "module": "app.utils.execute",
+    "args": [
+        "--load"
+    ],
+    "justMyCode": false
+}
