@@ -4,6 +4,7 @@
 **/chroma/
 **/data/**
 **/__pycache__/
+**/documents/rulebooks/**
 **/.env
 .env
 /venv

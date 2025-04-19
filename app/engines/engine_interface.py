@@ -62,7 +62,5 @@ class Engine(ABC):
         pass
 
     @abstractmethod
-    def keyword_search(
-        project_name: str, query: str, top_k: int = 10
-    ) -> List[Document]:
+    def keyword_search() -> List[Document]:
         pass

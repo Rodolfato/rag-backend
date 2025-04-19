@@ -16,10 +16,6 @@ load_dotenv(override=True)
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH")
 MESSAGES_PATH = os.getenv("MESSAGES_PATH")
 
-# TODO MOVE THIS LOGGING INTO A NEW FILE CALLED LOGGER_CONFIG.PY
-# TODO Also make a new file name each time it runs
-# TODO utilizar el logger para el funcionamiento de la aplicacion
-# TODO agregar logger a la consola
 # Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

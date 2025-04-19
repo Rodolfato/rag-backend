@@ -34,6 +34,11 @@ def main():
     )
     parser.add_argument("--generate-pdf-json", type=str)
     parser.add_argument("--update-db-with-pdf-json", type=str)
+    parser.add_argument(
+        "--project-names",
+        action="store_true",
+        help="Obtiene los nombres de los proyectos.",
+    )
     args = parser.parse_args()
 
     if args.load:
@@ -90,6 +95,9 @@ def main():
             vector_db_engine.get_db_collection(),
             os.path.join(directory, "PDF File Names.json"),
         )
+    if args.project_names:
+        project_names = vector_db_engine.get_project_names()
+        print(project_names)
 
 
 if __name__ == "__main__":
