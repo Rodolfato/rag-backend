@@ -44,6 +44,33 @@ def load_pdf_documents(path: str = DOCUMENTS_PATH) -> List[Document]:
 
 
 def load_pdf_documents_subdirectories(path: str) -> List[List[Document]]:
+    """
+    Carga documentos PDF desde cada subdirectorio dentro del directorio especificado.
+
+    Cada subdirectorio se considera un proyecto. Para cada archivo PDF, se extraen metadatos como
+    el nombre del proyecto, autor y año a partir del nombre del archivo, y opcionalmente título y enlace desde
+    un archivo JSON llamado "PDF File Names.json" ubicado en el mismo subdirectorio.
+
+    Formato esperado del nombre del archivo: "<año>_<autor>_<titulo>.pdf"
+    Formato del JSON: una lista de objetos que contienen los campos "year", "author", "title" y "link":
+        {
+            "year": "2016",
+            "author": "gutierrez celso",
+            "title": "mo un software modular y extensible para la captura y visualizacion de datos multimodales",
+            "link": "https://drive.google.com/file/d/17sdnnJU3FruIEuamJM-sZulFoa--3S9w/view?usp=drive_link"
+        }
+
+    Parámetros:
+        path (str): Ruta del directorio principal que contiene los subdirectorios con los documentos PDF.
+
+    Retorna:
+        List[List[Document]]: Una lista donde cada elemento es una lista de objetos Document correspondientes a un subdirectorio.
+
+    Notas:
+        - Los subdirectorios deben contener un archivo "PDF File Names.json" para enriquecer con título y enlace.
+        - Si no se encuentra una coincidencia en el JSON, se imprime una advertencia.
+        - Se incrementa en 1 el número de página para corregir la indexación basada en cero del cargador de PDFs.
+    """
     subdir_documents = []
 
     for subdir, _, _ in os.walk(path):

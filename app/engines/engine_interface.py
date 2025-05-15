@@ -62,5 +62,17 @@ class Engine(ABC):
         pass
 
     @abstractmethod
-    def keyword_search() -> List[Document]:
+    def vector_search(
+        self,
+        query: str,
+        project_name: str = None,
+        search_type: str = "similarity",
+        k: int = 4,
+    ) -> List[Document]:
+        pass
+
+    @abstractmethod
+    def keyword_search(
+        self, project_name: str, query: str, top_k: int = 10
+    ) -> List[Document]:
         pass
