@@ -45,9 +45,6 @@ class Engine(ABC):
         para agrupar los documentos por el campo `project_name` y devolver una lista de valores
         únicos de dicho campo.
 
-        El proceso se realiza mediante un pipeline de agregación de MongoDB que agrupa los documentos
-        por `project_name` y luego proyecta solo los valores únicos.
-
         Args:
             self: Instancia de la clase que contiene la conexión y la colección de la base de datos.
 
